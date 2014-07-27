@@ -78,3 +78,9 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
         # ... Let's go to the next iteration ...
      
     return lat, lon, alt, rxclk
+
+def lambda_fix(N,P):
+    
+    Nfix = N
+    return Nfix
+    
