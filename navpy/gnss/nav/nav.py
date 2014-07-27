@@ -7,6 +7,7 @@ LICENSE.txt
 import numpy as np
 import scipy.linalg as la
 import navpy as navpy
+import navpy.utils as _utils
 from ..satorbit import satorbit
 
 def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
@@ -18,17 +19,17 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
     raw_meas: prn_class object, containing the pseudorange measurements
     gps_ephem: ephem_class object, containing the satellite ephemeris
     
-    lat: (optional, degrees), initial guess of latitude
-    lon: (optional, degrees), initial guess of longitude
-    alt: (optional, m), initial guess of altitude
-    rxclk: (optional, seconds), initial guess of Receiver clock bias
+    lat : (optional, degrees), initial guess of latitude
+    lon : (optional, degrees), initial guess of longitude
+    alt : (optional, m), initial guess of altitude
+    rxclk : (optional, seconds), initial guess of Receiver clock bias
     
     Returns
     -------
-    lat: (deg) Latitude
-    lon: (deg) Longitude
-    alt: (m) Altitude
-    rxclk: (sec) Receiver Clock Bias
+    lat : (deg) Latitude
+    lon : (deg) Longitude
+    alt : (m) Altitude
+    rxclk : (sec) Receiver Clock Bias
     
     """
     # If there are less than 3 satellites, don't do anything
@@ -79,8 +80,61 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
      
     return lat, lon, alt, rxclk
 
-def lambda_fix(N,P):
+def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
+    """
+    This routine performs an integer ambiguity estimation using the LAMBDA method,
+    as developed by the Delft University of Technology, Mathematical Geodesy and Positioning
     
-    Nfix = N
-    return Nfix
+    This version is adaptation of lambda1 function in MATLAB and it is the extended version
+    of LAMBDA, intended to be used mainly for research. It has more options than the original
+    code.
+    
+    Parameters
+    ----------
+    afloat : { (N,) } Float ambiguities
+    Qahat : { (NxN) }, Covariance matrix of the ambiguities
+    ncands : optional
+        Number of candidates searched. Default is 2
+    verbose : optional
+        True or False
+        
+    Returns
+    -------
+    afixed : { (N,) } Estimated integers
+    sqnorm : { (N,) } Distance between candidates and float ambiguity input
+    Qzhat : { (N,N) } Decorrelated covariance matrix
+    Z : { (N,N) } Decorrelating transformation matrix
+    """
+    if(verbose):
+        print("=========================================================")
+        print("LAMBDA - Least Squares Ambiguity Decorrelation Adjustment")
+        print("        Based on MATLAB Rel. 2.0b d.d. 19 MAY 1999")
+        print("Originally written by:")
+        print("           Department of Geodesy and Positioning")
+        print("       Faculty of Civil Engineering and Geosciences")
+        print("      Delft University of Technology, The Netherlands")
+        print("Python Adaptation:")
+        print("                       Adhika Lie")
+        print("                        July 2014")
+        print("=========================================================")
+        print("Input Float Ambiguities:")
+        print(repr(afloat))
+        print("Input Covariance Matrix:")
+        print(repr(Qahat))
+        print("Number of candidates requested: %d" % ncands)
+    
+    # Input checks
+    afloat,_ = _utils.input_check_Nx1(afloat)
+    Qahat = np.array(Qahat)
+    if(Qahat.shape[0] != Qahat.shape[1]):
+        raise TypeError("Qahat is not square matrix")
+    if(len(afloat)!=Qahat.shape[0]):
+        raise TypeError("Input dimension not identical")
+    if( np.any ((Qahat - Qahat.T)>1e-12)  ):
+        raise ValueError("Qahat is not symmetric")
+    if( np.sum(la.eig(Qahat)[0]>0) != len(afloat) ):
+        raise ValueError("Qahat is not positive definite")
+    
+    afixed = afloat
+    return afixed
     
