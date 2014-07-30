@@ -1,8 +1,16 @@
-"""
+""" GNSS Navigation Module
+
+This module contains GNSS related navigation functions such as calculating
+code phase solution and carrier phase ambiguity fixing.
+
 Copyright (c) 2014 NavPy Developers. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be found in
 LICENSE.txt
 """
+
+__authors__ = ['Adhika Lie']
+__email__ = ['adhika.lee@gmail.com']
+__license__ = 'BSD3'
 
 import numpy as np
 import scipy.linalg as la
@@ -16,21 +24,30 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
     
     Parameters
     ----------
-    raw_meas: prn_class object, containing the pseudorange measurements
-    gps_ephem: ephem_class object, containing the satellite ephemeris
+    raw_meas: prn_class object
+              Object that contains pseudorange measurements.
+    gps_ephem: ephem_class object
+               Object that contains the satellite ephemeris.
     
-    lat : (optional, degrees), initial guess of latitude
-    lon : (optional, degrees), initial guess of longitude
-    alt : (optional, m), initial guess of altitude
-    rxclk : (optional, seconds), initial guess of Receiver clock bias
+    lat : float, optional
+          Initial guess of latitude in degrees
+    lon : float, optinal 
+          Initial guess of longitude in degrees
+    alt : float, optional
+          Initial guess of altitude in meters
+    rxclk : float, optional
+            Initial guess of Receiver clock bias in seconds
     
     Returns
     -------
-    lat : (deg) Latitude
-    lon : (deg) Longitude
-    alt : (m) Altitude
-    rxclk : (sec) Receiver Clock Bias
-    
+    lat : float
+          Estimated Latitude in degrees
+    lon : float
+          Estimated Longitude in degrees
+    alt : float
+          Estimated Altitude in meters
+    rxclk : float
+            Estimated Receiver Clock Bias in seconds
     """
     # If there are less than 3 satellites, don't do anything
     SV_avbl = np.nonzero(raw_meas.is_dataValid(range(32)))[0]
@@ -91,19 +108,36 @@ def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
     
     Parameters
     ----------
-    afloat : { (N,) } Float ambiguities
-    Qahat : { (NxN) }, Covariance matrix of the ambiguities
-    ncands : optional
-        Number of candidates searched. Default is 2
-    verbose : optional
-        True or False
+    afloat : {(N,)} iterable object
+             Float ambiguities.
+    Qahat : {(NxN)} ndarray
+            Covariance matrix of the ambiguities.
+    ncands : int, optional
+             Number of candidates searched. Default is 2.
+    verbose : bool, optional
+              Option for verbose screen print out. Default is False.
         
     Returns
     -------
-    afixed : { (N,) } Estimated integers
-    sqnorm : { (N,) } Distance between candidates and float ambiguity input
-    Qzhat : { (N,N) } Decorrelated covariance matrix
-    Z : { (N,N) } Decorrelating transformation matrix
+    afixed : {(N,)}, ndarray
+             Estimated integers
+    sqnorm : {(N,)} 
+             Distance between candidates and float ambiguity input
+    Qzhat : {(N,N)} 
+             Decorrelated covariance matrix
+    Z : {(N,N)}
+        Decorrelating transformation matrix
+        
+    See Also
+    --------
+    lambda_ldl, lambda_decorrel
+    
+    Notes
+    -----
+    [1] Paul de Jonge and Christian Tiberius, ``The LAMBDA method for integer ambiguity 
+    estimation,'' Publications of the Delft Geodetic Computing Centre, LGR-Series No. 12, 
+    August 1996. 
+    URL: http://www.citg.tudelft.nl/over-faculteit/afdelingen/geoscience-and-remote-sensing/research-themes/gps/lambda-method/
     """
     if(verbose):
         print("=========================================================")
@@ -153,14 +187,29 @@ def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
 
 def lambda_ldl(Qin):
     """
-    LDL decomposition such that
-    Qin = L'*D*L
+    LDL decomposition of `Qin`
+    
+    Parameters
+    ----------
+    Qin : {(N,N)}, ndarray
+          Covariance matrix input
+    
+    Returns
+    -------
+    L : {(N,N)}, ndarray
+        Lower triangular matrix from decomposition
+    D : {(N,N)}, ndarray
+        Diagonal matrix from decomposition
+    
+    Notes
+    -----
+    The resulting transformation is such that:
+    ..math:: Q = L^T D L
     """ 
     Q = Qin.copy()  # This is necessary because we need to modify Q
         
     L = np.zeros(Q.shape)
     D = np.zeros(Q.shape)
-
     
     for i in range(Q.shape[0]-1,-1,-1):
         
@@ -177,3 +226,15 @@ def lambda_ldl(Qin):
         raise ValueError('Input matrix Q is not positive definite')
         
     return L, D
+
+def lambda_decorrel(a,Q):
+    """
+    Decorrelate covariance matrix of ambiguities and returns the associated 
+    matrices.
+    
+    This routine is based on Fortran routine written by Paul de Jonge (TU Delft)
+    and on MATLAB routine written by Kai Borre
+    
+    The resulting transformation matrix, Z, can be used as follows:
+    
+    """
