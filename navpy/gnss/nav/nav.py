@@ -134,7 +134,46 @@ def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
         raise ValueError("Qahat is not symmetric")
     if( np.sum(la.eig(Qahat)[0]>0) != len(afloat) ):
         raise ValueError("Qahat is not positive definite")
+        
+    # Make the integer search between +/- 1 by subtracting the whole number
+    # out of afloat
+    incr = afloat.astype(int)
+    afloat = afloat - incr
+    if(verbose):
+        print("Shifted ambiguities:")
+        print(repr(afloat))
+        print("Increments:")
+        print(repr(incr))
+        
+    # Compute decorrelation matrix Z
+    # Z-transformation based on L-D decomposition of Qahat
     
     afixed = afloat
     return afixed
+
+def lambda_ldl(Qin):
+    """
+    LDL decomposition such that
+    Qin = L'*D*L
+    """ 
+    Q = Qin.copy()  # This is necessary because we need to modify Q
+        
+    L = np.zeros(Q.shape)
+    D = np.zeros(Q.shape)
+
     
+    for i in range(Q.shape[0]-1,-1,-1):
+        
+        D[i,i] = Q[i,i]
+        
+        L[i,0:i+1] = Q[i,0:i+1]/np.sqrt(Q[i,i])
+        
+        for j in range(0,i):
+            Q[j,0:j+1] = Q[j,0:j+1]-L[i,0:j+1]*L[i,j]
+
+        L[i,0:i+1] = L[i,0:i+1]/L[i,i]
+        
+    if(np.sum(np.diag(D)<1e-10)):
+        raise ValueError('Input matrix Q is not positive definite')
+        
+    return L, D
