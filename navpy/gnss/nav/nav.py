@@ -187,7 +187,7 @@ def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
 
 def lambda_ldl(Qin):
     """
-    LDL decomposition of `Qin`
+    L'DL decomposition of `Qin`
     
     Parameters
     ----------
@@ -227,14 +227,93 @@ def lambda_ldl(Qin):
         
     return L, D
 
-def lambda_decorrel(a,Q):
+def lambda_decorrel(Qin):
     """
     Decorrelate covariance matrix of ambiguities and returns the associated 
     matrices.
     
+    Parameters
+    ----------
+    Qin : {(N,N)}, ndarray
+          Original covariance matrix of ambiguities
+    
+    Returns
+    -------
+    Z : {(N,N), ndarray}
+        Transformation matrix
+    Q : {(N,N)}, ndarray
+        Decorrelated covariance matrix
+    
+    Notes
+    -----
     This routine is based on Fortran routine written by Paul de Jonge (TU Delft)
-    and on MATLAB routine written by Kai Borre
+    and on MATLAB routine written by Kai Borre.
+    The implementation is adapted from the MATLAB routine decorrel() written by
+    Peter Joosten (TU Delft) in 1999.
     
     The resulting transformation matrix, Z, can be used as follows:
-    
+    ..math::
+        z = Z^T a
+        \hat{z} = Z^T \hat{a}
+        Q_{\hat{z}} = Z^T Q_{\hat{a}} Z
     """
+    # Get L'DL decomposition of Qin
+    L, D = lambda_ldl(Qin)
+    
+    # Decorrelation procedure
+    n = Qin.shape[0]
+    Zti = np.eye(n)
+    ii = n - 2
+    sw = True
+    
+    while(sw):
+        i = n - 1
+        sw = False
+        
+        
+    return Z, Q
+
+def lambda_ztran(Qin):
+    """
+    ZTRAN in Section 3.4 in Ref[1], pp. 13
+    
+    This algorithm compute a Z-transformation matrix that will make
+    the absolute value of all off-diagonal elements of L less than or 
+    equal to 0.5
+    
+    Parameters
+    ----------
+    Qin : {(N,N)}, ndarray
+          Original covariance matrix of ambiguities
+    
+    Returns
+    -------
+    Z : {(N,N), ndarray}
+        Transformation matrix
+        
+    Notes
+    -----
+    The Z-transformation matrix is a unit lower triangular matrix (1 on diagonal) where
+    the only nonzero off-diagonal term is at (a,b), i.e., 
+    :math:`Z(a,b) = \mu`, :math:`a > b`.
+    
+    Because Z is almost an identity matrix, L*Z is almost exactly L except column b
+    which is modified by the value :math:`\mu` in Z.
+    ..math::
+        LZ(i,b) = L(i,a) Z(a,b) + L(i,b) Z(b,b)
+        LZ(i,b) = L(i,a) \mu + L(i,b)
+    """
+    
+    n = Qin.shape[0]
+    L, _ = lambda_ldl(Qin)  # D is never changed
+    Z = np.eye(n) 
+    
+    for b in reversed(range(0,n)): # Column
+        for a in range(b+1,n):     # Row
+            # Decorrelating column b with row a
+            mu = -np.round(L[a,b])   # Integer Gauss Approximation
+            
+            L[a:n,b] += mu*L[a:n,a]  #L[row<a,a] = 0, lower triangular 
+            Z[0:n,b] += mu*Z[0:n,a]
+            
+    return Z
