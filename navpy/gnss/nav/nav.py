@@ -262,18 +262,11 @@ def lambda_decorrel(Qin):
     
     # Decorrelation procedure
     n = Qin.shape[0]
-    Zti = np.eye(n)
-    ii = n - 2
-    sw = True
-    
-    while(sw):
-        i = n - 1
-        sw = False
-        
-        
+    Z = np.eye(n)
+                
     return Z, Q
 
-def lambda_ztran(Qin):
+def lambda_ztran(Qin,col=None,L=None):
     """
     ZTRAN in Section 3.4 in Ref[1], pp. 13
     
@@ -285,6 +278,11 @@ def lambda_ztran(Qin):
     ----------
     Qin : {(N,N)}, ndarray
           Original covariance matrix of ambiguities
+    col : {(M,)} iterable object
+          Columns that want to be decorrelated, M < N
+          Default is all column
+    L : {(N,N)}, ndarray
+        Input L matrix (L'DL decomposition), for bootstrapping
     
     Returns
     -------
@@ -303,12 +301,31 @@ def lambda_ztran(Qin):
         LZ(i,b) = L(i,a) Z(a,b) + L(i,b) Z(b,b)
         LZ(i,b) = L(i,a) \mu + L(i,b)
     """
-    
+    if(Qin.shape[0]!=Qin.shape[1]):
+        raise TypeError("Qin matrix input is not square")
+        
     n = Qin.shape[0]
-    L, _ = lambda_ldl(Qin)  # D is never changed
+    
+    if(L is None):
+        L, _ = lambda_ldl(Qin)  # D is never changed
+    else:
+        if(L.shape[0]!=L.shape[1]):
+            raise TypeError("L matrix input is not square")
+        if(L.shape[0]!=Qin.shape[1]):
+            raise TypeError("L matrix input shape is inconsistent")
+    
     Z = np.eye(n) 
     
-    for b in reversed(range(0,n)): # Column
+    if(col is None):
+        col = range(0,n)
+    else:
+        col.sort()
+        if(max(col)>=n):
+            raise ValueError("Exceed Column")
+            
+        col = list(set(col))
+        
+    for b in reversed(col):        # Column
         for a in range(b+1,n):     # Row
             # Decorrelating column b with row a
             mu = -np.round(L[a,b])   # Integer Gauss Approximation
