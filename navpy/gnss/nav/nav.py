@@ -274,6 +274,10 @@ def lambda_ztran(Qin,col=None,L=None):
     the absolute value of all off-diagonal elements of L less than or 
     equal to 0.5
     
+    When used in bootstrapped mode, input parameters `col` and `L` 
+    must be supplied. Since L is passed as an object,
+    L will be modified inside this routine. See example below. 
+    
     Parameters
     ----------
     Qin : {(N,N)}, ndarray
@@ -300,6 +304,57 @@ def lambda_ztran(Qin,col=None,L=None):
     ..math::
         LZ(i,b) = L(i,a) Z(a,b) + L(i,b) Z(b,b)
         LZ(i,b) = L(i,a) \mu + L(i,b)
+        
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from navpy.gnss import nav
+    >>> import scipy.linalg as la
+    
+    >>> Q = np.array([[ 5.12617627, -0.62559198, -4.3143666 ,  0.07728635],\
+                      [-0.62559198,  2.81791492,  1.91150824,  1.74148283],\
+                      [-4.3143666 ,  1.91150824,  9.49349332, -1.86648462],\
+                      [ 0.07728635,  1.74148283, -1.86648462,  2.51944188]])
+    >>> L, _ = nav.lambda_ldl(Q)                  
+    >>> print L
+    array([[ 1.        ,  0.        ,  0.        ,  0.        ],\
+           [ 2.85849804,  1.        ,  0.        ,  0.        ],\
+           [-0.52487319,  0.39474267,  1.        ,  0.        ],\
+           [ 0.03067598,  0.6912177 , -0.74083258,  1.        ]])
+           
+    >>> # Get the Z-matrix in one-go
+    >>> Z = nav.lambda_ztran(Q) 
+    >>> print Z
+    array([[ 1.,  0.,  0.,  0.],\
+           [-3.,  1.,  0.,  0.],\
+           [ 2.,  0.,  1.,  0.],\
+           [ 4., -1.,  1.,  1.]])
+    >>> print L.dot(Z)
+    array([[ 1.        ,  0.        ,  0.        ,  0.        ],\
+           [-0.14150196,  1.        ,  0.        ,  0.        ],\
+           [ 0.2908988 ,  0.39474267,  1.        ,  0.        ],\
+           [ 0.47535772, -0.3087823 ,  0.25916742,  1.        ]])
+    
+    >>> # Get the Z-matrix iteratively/bootstrapped
+    >>> print L # Still the original one
+    array([[ 1.        ,  0.        ,  0.        ,  0.        ],\
+           [ 2.85849804,  1.        ,  0.        ,  0.        ],\
+           [-0.52487319,  0.39474267,  1.        ,  0.        ],\
+           [ 0.03067598,  0.6912177 , -0.74083258,  1.        ]])
+           
+    >>> Z2 = np.eye(Q.shape[0])
+    >>> for i in reversed(range(0,4)):
+            Z2 = Z2.dot(nav.lambda_ztran(Q,col=[i],L=L))
+    >>> print Z2
+    array([[ 1.,  0.,  0.,  0.],\
+           [-3.,  1.,  0.,  0.],\
+           [ 2.,  0.,  1.,  0.],\
+           [ 4., -1.,  1.,  1.]])
+    >>> print L # Has been modified inside the lambda_ztran call
+    array([[ 1.        ,  0.        ,  0.        ,  0.        ],\
+           [-0.14150196,  1.        ,  0.        ,  0.        ],\
+           [ 0.2908988 ,  0.39474267,  1.        ,  0.        ],\
+           [ 0.47535772, -0.3087823 ,  0.25916742,  1.        ]])
     """
     if(Qin.shape[0]!=Qin.shape[1]):
         raise TypeError("Qin matrix input is not square")
