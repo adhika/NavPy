@@ -241,21 +241,21 @@ def lambda_decorrel(Qin):
     -------
     Z : {(N,N), ndarray}
         Transformation matrix
-    Q : {(N,N)}, ndarray
-        Decorrelated covariance matrix
+    L : {(N,N)}, ndarray
+        Decorrelated unit lower triangular matrix
+    D : {(N,N)}, ndarray
+        Decorrelated diagonal matrix of variances
     
     Notes
     -----
-    This routine is based on Fortran routine written by Paul de Jonge (TU Delft)
-    and on MATLAB routine written by Kai Borre.
     The implementation is adapted from the MATLAB routine decorrel() written by
     Peter Joosten (TU Delft) in 1999.
     
     The resulting transformation matrix, Z, can be used as follows:
     ..math::
-        z = Z^T a
-        \hat{z} = Z^T \hat{a}
-        Q_{\hat{z}} = Z^T Q_{\hat{a}} Z
+        z = Z a
+        \hat{z} = Z \hat{a}
+        Q_{\hat{z}} = Z Q_{\hat{a}} Z^T
     """
     # Decorrelation procedure
     n = Qin.shape[0]
@@ -434,4 +434,4 @@ def lambda_ztran(Qin,col=None,L=None):
             L[a:n,b] += mu*L[a:n,a]  #L[row<a,a] = 0, lower triangular 
             Z[0:n,b] += mu*Z[0:n,a]
             
-    return Z
+    return Z.astype('int')
