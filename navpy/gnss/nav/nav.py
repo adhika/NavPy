@@ -257,14 +257,60 @@ def lambda_decorrel(Qin):
         \hat{z} = Z^T \hat{a}
         Q_{\hat{z}} = Z^T Q_{\hat{a}} Z
     """
-    # Get L'DL decomposition of Qin
-    L, D = lambda_ldl(Qin)
-    
     # Decorrelation procedure
     n = Qin.shape[0]
+    
+    # Get L'DL decomposition of Qin
+    L, D = lambda_ldl(Qin)
+    # Initialize the Z matrix
     Z = np.eye(n)
+    
+    isSorted = False     # Flag to indicate that Q is now decorrelated and reordered
+    isReordered = False  # Flag to indicate that there is reordering
+    
+    while (isSorted is False):
+        col = n - 1  # Initialize to the last column
+        isReordered = False # Initialize this flag
+        while (col > 0):
+            # ---------------------- DECORRELATION ------------------------
+            # Apply ZTRAN to element indicated by `col`
+            col -= 1 # ... [Last column need not be decorrelated]
+            Z = Z.dot(lambda_ztran(Qin,col=[col],L=L)) 
+            
+            # ------------------------ REORDERING -------------------------
+            # Try swapping `col` with `col+1`
+            P = np.eye(n)
+            P[col:col+2,col:col+2] = np.array([[0,1],[1,0]]) # Swapping matrix
+            
+            Qnew = P.dot(L.T.dot(D).dot(L)).dot(P.T)  # This is using decorrelated L
+            Lnew, Dnew = lambda_ldl(Qnew)  # Here is the new L'DL
+            
+            #print("Element %d" % col)
+            #print("Reordering matrix P = ")
+            #print(P)
+            #print("Before reordering, D =")
+            #print(D)
+            #print("Dnew = ")
+            #print(Dnew)
+            
+            # If the new variance of element `col+1` is less than before swapping...
+            # Let's swap them
+            if (Dnew[col+1,col+1] < D[col+1,col+1]):
+                # This reordering results in descending order of variances
+                # print ("Need reordering ...")
+                isReordered = True
+                Z = Z.dot(P)  # "Add" the swapping matrix P to the transformation Z
+                L = Lnew.copy()
+                D = Dnew.copy()
+                #print("After re-ordering, D = ")
+                #print(D)
                 
-    return Z, Q
+                break; # Break this inner while loop and redo decorrelation from last column
+        
+        if ((col == 0) and (isReordered is False)):
+            isSorted = True
+            
+    return Z.astype('int'), L, D
 
 def lambda_ztran(Qin,col=None,L=None):
     """
@@ -375,7 +421,7 @@ def lambda_ztran(Qin,col=None,L=None):
         col = range(0,n)
     else:
         col.sort()
-        if(max(col)>=n):
+        if(max(col)>n):
             raise ValueError("Exceed Column")
             
         col = list(set(col))
