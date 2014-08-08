@@ -7,8 +7,6 @@ import navpy.gnss.satorbit as satorbit
 import unittest
 import numpy as np
 
-assert_almost_equal = np.testing.assert_almost_equal
-
 class TestSatOrbitClass(unittest.TestCase):
     def test_sat_pos_computation(self):
         ephem_file = 'test_data/brdc1680.13n'
