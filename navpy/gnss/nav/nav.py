@@ -436,9 +436,49 @@ def lambda_ztran(Qin,col=None,L=None):
             
     return Z.astype('int')
 
-def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
+def lambda_fi71(afloat,L,D,Chi2,ncands=2,verbose=False):
     """
-    Algorithm FI71 Section 4.5 of the implementation manual
+    Algorithm FI71 Section 4.5 of [1]
+    
+    This algorithm is a direct search from left to right, i.e. from
+    the lower bound to the right bound. A set of integers is feasible
+    if they lie inside the hyperellipsoid bounded by `Chi2`
+    
+    To find a full candidate set of integer, the searched is done 
+    systematically from the last integer `a[N-1]` to the first `a[0]`.
+    Each valid integer will be tried, one at a time, and the adjustment 
+    proceeds with the next ambiguity `a[i-1]`, the so-called depth-first
+    search. If for a certain ambiguity `a[l]` no valid integers can be
+    found, one returns to the previous ambiguity `a[l+1]` and takes the
+    next valid integer for this ambiguity. The search terminates when all 
+    valid integers encountered, have been treated and one is back at the 
+    last ambiguity `a[N-1]`; see how it is done by the BACKTS subroutine 
+    below.
+    
+    The process of validating an integer (i.e. checking if it lies inside
+    the hyperellipsoid) is done recursively to speed up the algorithm.
+    
+    Parameters
+    ----------
+    afloat : {(N,)} iterable object
+             Decorrelated float ambiguities.
+    L : {(N,N)}, ndarray
+        Decorrelated unit lower triangular matrix
+    D : {(N,N)}, ndarray
+        Decorrelated diagonal matrix of variances
+    Chi2 : int, optional
+           Hyperellipsoid volume. Default is 2.
+    ncands : Requested number of integer sets
+    verbose : bool, optional
+    
+    Returns
+    -------
+    afixed : {(N,ncands)}, ndarray
+             Integer sets, as many as requested by `ncands`
+             Ordered in ascending `sqnorm`
+    sqrnom : {(ncands,)}, ndarray         
+             The norm-squared of the integer sets. Listed
+             in ascending order of magnitude
     """
     # L, D were from Q = L^T * D * L
     # We need for Qinv = Linv * Dinv * Linv^T
@@ -491,9 +531,9 @@ def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
         
         right[i] = dq[i] * (right[i+1] - left[i+1]) # cf. Eq (4.9)
         reach = np.sqrt(right[i]) 
-        print("right")
-        print(right)
         
+        # IMPORTANT:
+        # The upper and lower bounds are for `a` and NOT `a_min_ahat`
         lower_bound = afloat[i] - reach - sum_lji_delta_a[i] # cf. Eq. (4.14)
         upper_bound[i] = afloat[i] + reach - sum_lji_delta_a[i] 
             # ... Need to save upper bound history in case of backtracking
@@ -511,6 +551,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
             while ((c_stop is False) and (i < N-1)):
                 i += 1  # Get back up one level
                 
+                # Remember upper bound is for `a` and not `a_min_ahat`
                 if( (a_min_ahat[i]+afloat[i]+1) < upper_bound[i] ):
                     # If I `a` becomes `a+1`, will it exceed the upper
                     # bound at this level?
@@ -561,10 +602,10 @@ def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
             # 1. Collect ALL integers at this lowest level
             # Calculate the norm ... cf. Eq. (4. 16)
             if(verbose):
-                print("... Lowest Level is reached, sorting through candidates here")
+                print("... At i = 0, sorting through candidates here")
             t = Chi2 - (right[0] - left[0]) * Dinv[0,0]  # This is using the first integer
                                                        # we found at this level...
-            
+            # Remember upper bound is for `a` and not `a_min_ahat`
             while( ( a_min_ahat[0]+afloat[0] ) <= upper_bound[0] ): 
                 if(ncan < ncands):
                     afixed[:,ncan] = a_min_ahat + afloat
@@ -577,17 +618,15 @@ def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
                         sqnorm[ipos] = t
             
                 if(verbose):
-                    print("a = ")
-                    print(a_min_ahat + afloat)
-                    print("Norm = %f" % t)
-                    print("\n")
+                    print("a = "),
+                    print(a_min_ahat + afloat), 
+                    print(" Norm = %f" % t)
                     
                 t += (2*(a_min_ahat[0] + sum_lji_delta_a[0]) + 1 ) *Dinv[0,0] 
                 a_min_ahat[0] += 1
             if(verbose):
                 print("... Done with the lowest level")
-                #print("Before backtracking, a = ")
-                #print(a_min_ahat + afloat)
+                print("===============================")
                     
             # 2. Back track one, so we are doing a complete systematic sweep
             # ============ BACKTS Sub-Routine =============
@@ -596,6 +635,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
             while ((c_stop is False) and (i < N-1)):
                 i += 1  # Get back up one level
                 
+                # Remember upper bound is for `a` and not `a_min_ahat`
                 if( (a_min_ahat[i]+afloat[i]+1) < upper_bound[i] ):
                     # If I `a` becomes `a+1`, will it exceed the upper
                     # bound at this level?
@@ -624,6 +664,6 @@ def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
                 isEnded = True
             # ==============================================
             
-    return afixed[:,sqnorm.argsort()], sqnorm[sqnorm.argsort()]
+    return afixed[:,sqnorm.argsort()].astype('int'), sqnorm[sqnorm.argsort()]
     
     
