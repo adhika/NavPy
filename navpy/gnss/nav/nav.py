@@ -435,3 +435,175 @@ def lambda_ztran(Qin,col=None,L=None):
             Z[0:n,b] += mu*Z[0:n,a]
             
     return Z.astype('int')
+
+def lambda_fi71(afloat,L,D,Chi2,ncands):
+    """
+    Algorithm FI71 Section 4.5 of the implementation manual
+    """
+    # L, D were from Q = L^T * D * L
+    # We need for Qinv = Linv * Dinv * Linv^T
+    Linv = la.inv(L)
+    Dinv = np.diag(1./np.diag(D))
+    
+    afloat, N = navpy.utils.input_check_Nx1(afloat)
+    
+    # This is the LHS and RHS of Eq. (4.6), (4.7)
+    right = np.zeros(N+1)
+    right[-1] = Chi2  # Very last one initialized to Chi2
+    
+    left = np.zeros(N+1)
+    dq = np.hstack((np.diag(D)[1:],1))/np.diag(D)  # d_{i+1}/d_{i}
+    
+    a_min_ahat = np.zeros(N)
+    sum_lji_delta_a = np.zeros(N)
+    
+    upper_bound = np.zeros(N)
+    
+    afixed = np.zeros((N,ncands))
+    sqnorm = np.zeros(ncands)
+    
+    isEnded = False
+    ncan = 0
+    
+    i = N
+    iold = i
+    while (isEnded is False):
+        i -= 1
+        
+        if(iold <= i):
+            # This is the case, when we happen to backtrack in our search
+            # in the BACKTS algorithm below i is incremented
+            # So, `i` will become larger than `iold`
+            # When this is the case, `a[i+1]` has been incremented by 1
+            # So the existing sum_lji_delta_a[i] needs to be incremented by
+            # Linv(i+1,i)
+            # newSum[i] = Linv_{i+1,i} * ( a[i+1] + 1 -ahat[i+1] ) + sum_from_i+2
+            # newSum[i] = Linv_{i+1,i} * 1 + oldSum[i]
+            sum_lji_delta_a[i] += Linv[i+1,i]
+        else:
+            # This is the normal case, when there is no backtracking, you
+            # have to calculate the 
+            # sum from (j = i+1 to j = N-1) of L_{ji}* ( a[j]-ahat[j] )
+            sum_lji_delta_a[i] = 0
+            for j in range(i+1,N):
+                sum_lji_delta_a[i] += Linv[j,i] * a_min_ahat[j]
+        iold = i
+        
+        right[i] = dq[i] * (right[i+1] - left[i+1]) # cf. Eq (4.9)
+        reach = np.sqrt(right[i]) 
+        
+        lower_bound = afloat[i] - reach - sum_lji_delta_a[i] # cf. Eq. (4.14)
+        upper_bound[i] = afloat[i] + reach - sum_lji_delta_a[i] 
+            # ... Need to save upper bound history in case of backtracking
+            
+        print("At level i = %d" % i)
+        print("sum_lji_delta_a = %f" % sum_lji_delta_a[i])
+        print("Lower bound of afixed = %f" % lower_bound)
+        print("Upper bound of afixed = %f" % upper_bound[i])
+        
+        a = np.ceil(lower_bound) # First integer after lower bound
+        a_min_ahat[i] = a - afloat[i]
+        
+        if(a > upper_bound[i]):
+            # If the first integer exceeds the upper bound
+            # there is nothing at this level, so back track 
+            # one level up
+            # ============ BACKTS Sub-Routine =============
+            cand_n = False  # Flag to stop this entire search subroutine (see below)
+            c_stop = False  # Flag to stop backtracking
+            while ((c_stop is False) and (i < N-1)):
+                i += 1  # Get back up one level
+                
+                if( (a_min_ahat[i]+1) < upper_bound[i] ):
+                    # If I `a` becomes `a+1`, will it exceed the upper
+                    # bound at this level?
+                    # If not, then this `a+1` IS a candidate or a 
+                    # feasible integer
+                    
+                    a_min_ahat[i] += 1  # Make the change of the value of `a` 
+                                        # at this level, update the left[i]
+                    left[i] = (a_min_ahat[i] + sum_lji_delta_a[i])**2
+                    c_stop = True       # We've found a candidate, stop backtracking
+                    
+                    if (i is N-1):
+                        # Flag indicating that, even though we are at the last level,
+                        # we still find a candidate, do not end the iteration just yet
+                        cand_n = True
+                
+            if (i is N-1) and (cand_n is False):
+                # We have backtracked all the way to the last level
+                # And at this level, we don't have any more candidate.
+                # This means, the search has been completed.
+                # Now you can set the isEnded flag
+                isEnded = True
+            # ==============================================
+        else:
+            # Hey, I haven't reached the upper bound
+            # So `a` is a feasible integer
+            print("Integer candidate %d" % a)
+            left[i] = (a_min_ahat[i] + sum_lji_delta_a[i])**2
+            
+        # We have picked one integer in this level (i.e. level i), let's move on
+        # to the next level, i.e. level i-1, go to `while(isEnded is False)`
+        
+        # ... Go back to top, unless you are at i = 0
+        
+        if (i is 0):
+            print "Lowest Level is reached"
+            # Hey, we have reached i = 0, i.e. the lowest level. 
+            # 1. Collect ALL integers at this lowest level
+            # Calculate the norm ... cf. Eq. (4. 16)
+            t = Chi2 - (right[0] - left[0]) * Dinv[0,0]  # This is using the first integer
+                                                       # we found at this level...
+            
+            while( ( a_min_ahat[0]+afloat[0] ) <= upper_bound[0] ): 
+                print("Norm is %f" % t)
+                
+                if(ncan < (ncands-1)):
+                    ncan += 1
+                    afixed[:,ncan] = a_min_ahat + afloat
+                    sqnorm[ncan] = t
+                else:
+                    ipos = np.argmax(sqnorm)
+                    if (t < sqnorm[ipos]):
+                        afixed[:,ipos] = a_min_ahat + afloat
+                        sqnorm[ipos] = t
+            
+                t += (2*(a_min_ahat[0] + sum_lji_delta_a[0]) + 1 ) *Dinv[0,0] 
+                a_min_ahat[0] += 1
+                print("Integer candidate %d" % (a_min_ahat[0]+afloat[0]))
+            
+            # 2. Back track one, so we are doing a complete systematic sweep
+            # ============ BACKTS Sub-Routine =============
+            cand_n = False  # Flag to stop this entire search subroutine (see below)
+            c_stop = False  # Flag to stop backtracking
+            while ((c_stop is False) and (i < N-1)):
+                i += 1  # Get back up one level
+                
+                if( (a_min_ahat[i]+1) < upper_bound[i] ):
+                    # If I `a` becomes `a+1`, will it exceed the upper
+                    # bound at this level?
+                    # If not, then this `a+1` IS a candidate or a 
+                    # feasible integer
+                    
+                    a_min_ahat[i] += 1  # Make the change of the value of `a` 
+                                        # at this level, update the left[i]
+                    left[i] = (a_min_ahat[i] + sum_lji_delta_a[i])**2
+                    c_stop = True       # We've found a candidate, stop backtracking
+                    
+                    if (i is N-1):
+                        # Flag indicating that, even though we are at the last level,
+                        # we still find a candidate, do not end the iteration just yet
+                        cand_n = True
+                
+            if (i is N-1) and (cand_n is False):
+                # We have backtracked all the way to the last level
+                # And at this level, we don't have any more candidate.
+                # This means, the search has been completed.
+                # Now you can set the isEnded flag
+                isEnded = True
+            # ==============================================
+    
+    return afixed, sqnorm
+    
+    
