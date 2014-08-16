@@ -436,7 +436,7 @@ def lambda_ztran(Qin,col=None,L=None):
             
     return Z.astype('int')
 
-def lambda_fi71(afloat,L,D,Chi2,ncands):
+def lambda_fi71(afloat,L,D,Chi2,ncands,verbose='False'):
     """
     Algorithm FI71 Section 4.5 of the implementation manual
     """
@@ -452,7 +452,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
     right[-1] = Chi2  # Very last one initialized to Chi2
     
     left = np.zeros(N+1)
-    dq = np.hstack((np.diag(D)[1:],1))/np.diag(D)  # d_{i+1}/d_{i}
+    dq = np.hstack((np.diag(Dinv)[1:],1))/np.diag(Dinv)  # d_{i+1}/d_{i}
     
     a_min_ahat = np.zeros(N)
     sum_lji_delta_a = np.zeros(N)
@@ -460,7 +460,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
     upper_bound = np.zeros(N)
     
     afixed = np.zeros((N,ncands))
-    sqnorm = np.zeros(ncands)
+    sqnorm = np.nan*np.zeros(ncands)
     
     isEnded = False
     ncan = 0
@@ -491,17 +491,14 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
         
         right[i] = dq[i] * (right[i+1] - left[i+1]) # cf. Eq (4.9)
         reach = np.sqrt(right[i]) 
+        print("right")
+        print(right)
         
         lower_bound = afloat[i] - reach - sum_lji_delta_a[i] # cf. Eq. (4.14)
         upper_bound[i] = afloat[i] + reach - sum_lji_delta_a[i] 
             # ... Need to save upper bound history in case of backtracking
-            
-        print("At level i = %d" % i)
-        print("sum_lji_delta_a = %f" % sum_lji_delta_a[i])
-        print("Lower bound of afixed = %f" % lower_bound)
-        print("Upper bound of afixed = %f" % upper_bound[i])
-        
-        a = np.ceil(lower_bound) # First integer after lower bound
+                    
+        a = np.ceil(lower_bound) # First integer in this level after lower bound
         a_min_ahat[i] = a - afloat[i]
         
         if(a > upper_bound[i]):
@@ -514,7 +511,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
             while ((c_stop is False) and (i < N-1)):
                 i += 1  # Get back up one level
                 
-                if( (a_min_ahat[i]+1) < upper_bound[i] ):
+                if( (a_min_ahat[i]+afloat[i]+1) < upper_bound[i] ):
                     # If I `a` becomes `a+1`, will it exceed the upper
                     # bound at this level?
                     # If not, then this `a+1` IS a candidate or a 
@@ -524,6 +521,13 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
                                         # at this level, update the left[i]
                     left[i] = (a_min_ahat[i] + sum_lji_delta_a[i])**2
                     c_stop = True       # We've found a candidate, stop backtracking
+                    
+                    if(verbose):
+                        print("... Exceed upper bound on current level")    
+                        print("Backtracked to level i = %d" % i)
+                        #print("a = ")
+                        #print(a_min_ahat + afloat)
+                        #print("\n")
                     
                     if (i is N-1):
                         # Flag indicating that, even though we are at the last level,
@@ -540,8 +544,12 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
         else:
             # Hey, I haven't reached the upper bound
             # So `a` is a feasible integer
-            print("Integer candidate %d" % a)
             left[i] = (a_min_ahat[i] + sum_lji_delta_a[i])**2
+            if(verbose):    
+                print("Searching level i = %d" % i)
+                #print("a = ")
+                #print(a_min_ahat + afloat)
+                #print("\n")
             
         # We have picked one integer in this level (i.e. level i), let's move on
         # to the next level, i.e. level i-1, go to `while(isEnded is False)`
@@ -549,30 +557,38 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
         # ... Go back to top, unless you are at i = 0
         
         if (i is 0):
-            print "Lowest Level is reached"
             # Hey, we have reached i = 0, i.e. the lowest level. 
             # 1. Collect ALL integers at this lowest level
             # Calculate the norm ... cf. Eq. (4. 16)
+            if(verbose):
+                print("... Lowest Level is reached, sorting through candidates here")
             t = Chi2 - (right[0] - left[0]) * Dinv[0,0]  # This is using the first integer
                                                        # we found at this level...
             
             while( ( a_min_ahat[0]+afloat[0] ) <= upper_bound[0] ): 
-                print("Norm is %f" % t)
-                
-                if(ncan < (ncands-1)):
-                    ncan += 1
+                if(ncan < ncands):
                     afixed[:,ncan] = a_min_ahat + afloat
                     sqnorm[ncan] = t
+                    ncan += 1
                 else:
                     ipos = np.argmax(sqnorm)
                     if (t < sqnorm[ipos]):
                         afixed[:,ipos] = a_min_ahat + afloat
                         sqnorm[ipos] = t
             
+                if(verbose):
+                    print("a = ")
+                    print(a_min_ahat + afloat)
+                    print("Norm = %f" % t)
+                    print("\n")
+                    
                 t += (2*(a_min_ahat[0] + sum_lji_delta_a[0]) + 1 ) *Dinv[0,0] 
                 a_min_ahat[0] += 1
-                print("Integer candidate %d" % (a_min_ahat[0]+afloat[0]))
-            
+            if(verbose):
+                print("... Done with the lowest level")
+                #print("Before backtracking, a = ")
+                #print(a_min_ahat + afloat)
+                    
             # 2. Back track one, so we are doing a complete systematic sweep
             # ============ BACKTS Sub-Routine =============
             cand_n = False  # Flag to stop this entire search subroutine (see below)
@@ -580,7 +596,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
             while ((c_stop is False) and (i < N-1)):
                 i += 1  # Get back up one level
                 
-                if( (a_min_ahat[i]+1) < upper_bound[i] ):
+                if( (a_min_ahat[i]+afloat[i]+1) < upper_bound[i] ):
                     # If I `a` becomes `a+1`, will it exceed the upper
                     # bound at this level?
                     # If not, then this `a+1` IS a candidate or a 
@@ -590,6 +606,10 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
                                         # at this level, update the left[i]
                     left[i] = (a_min_ahat[i] + sum_lji_delta_a[i])**2
                     c_stop = True       # We've found a candidate, stop backtracking
+                    if(verbose):
+                        print("Backtracked to level i = %d" % i)
+                        #print("a = ")
+                        #print(a_min_ahat + afloat)
                     
                     if (i is N-1):
                         # Flag indicating that, even though we are at the last level,
@@ -603,7 +623,7 @@ def lambda_fi71(afloat,L,D,Chi2,ncands):
                 # Now you can set the isEnded flag
                 isEnded = True
             # ==============================================
-    
-    return afixed, sqnorm
+            
+    return afixed[:,sqnorm.argsort()], sqnorm[sqnorm.argsort()]
     
     
