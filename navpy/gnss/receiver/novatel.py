@@ -3,14 +3,32 @@ Copyright (c) 2014 NavPy Developers. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be found in
 LICENSE.txt
 """
-
 import struct
 import numpy as _np
 
 ###############################################################################
 ###################                 READ GPS               ####################
 ###############################################################################
-def read_gps(fid,sat):
+def read_gps(fid,rx):
+    """
+    Read raw GPS measurements (binary file)
+    Works with NovaTel's RANGE message
+    
+    Parameters
+    ----------
+    fid : File ID
+          This is returned by the command open() after opening the binary file
+    rx : rx_class
+         This class is defined in receiver.py. The function read_gps() populates
+         the `rawdata` class inside the `rx_class` and also the GPS Time of Week
+    
+    Returns
+    -------
+    msgID : int, Message ID
+            Tells what message is being parsed
+    msgValid : bool
+               This is True when check sum or CRC is successful
+    """
     state = 0
     bytes_cnt = 0
 
@@ -110,8 +128,9 @@ def read_gps(fid,sat):
                 print("TOW = %f, Bad CRC" % GPS_TOW)
             else:
                 if(msg_id==43):
-                    sat.set_TOW(GPS_TOW)
-                    parse_range(msgBuff,sat)
+                    # This is RANGE message from NovaTel Receiver
+                    rx.TOW = GPS_TOW
+                    parse_range(msgBuff,rx.rawdata)
                 msgValid = True
                 
             state = 0
@@ -191,18 +210,19 @@ def _CALCULATEBLOCKCRC32(entire_buffer):
     return crc
     
 """"
-import gnss
+from navpy import gnss
+from navpy.gnss.receiver.novatel import read_gps
 
 fid = open('test_files/LOG00159.BIN','rb')
-satData = gnss.prn_class()
+GPSrx = gnss.rx_class()
 
 while(1):
     file_pos = fid.tell()
     
-    msgID, msgValid = read_gps(fid,satData)
+    msgID, msgValid = read_gps(fid,GPSrx)
     
     if(msgValid):
-        print("TOW = %f, msgID = %d" % (satData.get_TOW(),msgID))
+        print("TOW = %f, msgID = %d" % (GPSrx.TOW,msgID))
     
     if( (fid.tell() - file_pos) <= 0 ):
         break
