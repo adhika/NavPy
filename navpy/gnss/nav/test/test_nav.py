@@ -3,7 +3,9 @@ Copyright (c) 2014 NavPy Developers. All rights reserved.
 Use of this source code is governed by a BSD-style license that can be found in
 LICENSE.txt
 """
+from navpy import gnss
 import navpy.gnss.nav as nav
+import navpy.gnss.satorbit as satorbit
 import unittest
 import numpy as np
 import scipy.linalg as la
@@ -81,6 +83,43 @@ class TestGNSSNavClass(unittest.TestCase):
         
         self.assertTrue(D[0,0]>=D[1,1])
         self.assertTrue(D[1,1]>=D[2,2])
+    
+    def test_code_phase_LS(self):
+        ephem_file = '../../satorbit/tests/test_data/brdc1680.13n'
+        meas_file = 'test_data/Jun172013_test_AL_HM.txt'
+        
+        GPSrx = gnss.rx_class()
+        
+        gps_ephem = satorbit.ephem_class()
+        gps_ephem.read_RINEX(ephem_file)
+        
+        range_data = open(meas_file,'r')
+        
+        for raw_meas in range_data:
+            data = np.fromstring(raw_meas,sep='\t')
+    
+            # Parse the Data
+            for i in xrange(32):
+                GPSrx.TOW = data[0]
+                GPSrx.rawdata.set_pseudorange(data[6*i+1],data[6*i+4],i)
+                GPSrx.rawdata.set_carrierphase(data[6*i+2],data[6*i+5],data[6*i+6],i)
+                GPSrx.rawdata.set_doppler(data[6*i+3],i)
+        
+                GPSrx.rawdata.check_dataValid(i)
+        
+            SV_avbl = np.nonzero(GPSrx.rawdata.is_dataValid(range(32)))[0]
+            
+            GPSrx.lat, GPSrx.lon, GPSrx.alt, GPSrx.clkbias = \
+                                nav.code_phase_LS(GPSrx,gps_ephem,\
+                                                 lat=GPSrx.lat,\
+                                                 lon=GPSrx.lon,\
+                                                 alt=GPSrx.alt,\
+                                                 rxclk=GPSrx.clkbias)
+
+        lat_ref, lon_ref, alt_ref = 44.97989988, -93.22683469, 255.44430556
+        
+        for e1, e2 in zip([lat_ref, lon_ref, alt_ref],[GPSrx.lat, GPSrx.lon, GPSrx.alt]):
+            self.assertAlmostEqual(e1,e2,places=8)
     
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestGNSSNavClass)

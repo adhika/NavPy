@@ -18,14 +18,14 @@ import navpy as navpy
 import navpy.utils as _utils
 from ..satorbit import satorbit
 
-def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
+def code_phase_LS(rx, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
     """
     Calculate code phase least square solution
     
     Parameters
     ----------
-    raw_meas: prn_class object
-              Object that contains pseudorange measurements.
+    rx: rx_class object
+        Contains all the receiver data
     gps_ephem: ephem_class object
                Object that contains the satellite ephemeris.
     
@@ -50,23 +50,23 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
             Estimated Receiver Clock Bias in seconds
     """
     # If there are less than 3 satellites, don't do anything
-    SV_avbl = np.nonzero(raw_meas.is_dataValid(range(32)))[0]
+    SV_avbl = np.nonzero(rx.rawdata.is_dataValid(range(32)))[0]
     
     if(len(SV_avbl) < 3):
         return lat, lon, alt, rxclk
     
     # Begin computing position using Least Squares
-    t_tx = raw_meas.get_TOW()*np.ones(len(SV_avbl))
+    #t_tx = rx.TOW*np.ones(len(SV_avbl))
     delta_time = np.zeros(len(SV_avbl))
     
     # Iterate because time at transmission is not known ...
     for k in xrange(5):
         ecef = navpy.lla2ecef(lat,lon,alt)
-        t_tx = raw_meas.get_TOW()*np.ones(len(SV_avbl)) - delta_time
+        t_tx = rx.TOW*np.ones(len(SV_avbl)) - delta_time
         
         # Build satellite information
-        clk = satfn.compute_sat_clk_bias(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
-        x,y,z = satfn.compute_sat_pos(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
+        clk = satorbit.compute_sat_clk_bias(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
+        x,y,z = satorbit.compute_sat_pos(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
         
         # Build Geometry Matrix H = [LOS 1]
         rho = np.sqrt((x-ecef[0])**2 + (y-ecef[1])**2 + (z-ecef[2])**2)  #LOS Magnitude
@@ -77,10 +77,10 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
         
         # Innovation: Difference between the measurement (corrected for satellite clock bias)
         #             and PR_hat
-        dy = (raw_meas.get_pseudorange(SV_avbl) + clk*2.99792458e8) - PR_hat
+        dy = (rx.rawdata.get_pseudorange(SV_avbl) + clk*2.99792458e8) - PR_hat
         
         # Measurement Covariance
-        RR = raw_meas.get_PR_cov(SV_avbl)
+        RR = rx.rawdata.get_PR_cov(SV_avbl)
 
         # Least Square Solution
         dx = la.inv(H.T.dot(RR.dot(H))).dot(H.T.dot(RR)).dot(dy)
@@ -91,7 +91,7 @@ def code_phase_LS(raw_meas, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
         lat, lon, alt = navpy.ecef2lla(ecef)
         
         # Recalculate delta_time to correct for time at transmission
-        x,y,z = compute_sat_pos(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
+        x,y,z = satorbit.compute_sat_pos(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
         delta_time = (np.sqrt((x-ecef[0])**2 + (y-ecef[1])**2 + (z-ecef[2])**2))/2.99792458e8
         # ... Let's go to the next iteration ...
      
@@ -666,4 +666,40 @@ def lambda_fi71(afloat,L,D,Chi2,ncands=2,verbose=False):
             
     return afixed[:,sqnorm.argsort()].astype('int'), sqnorm[sqnorm.argsort()]
     
+def lambda_chistart(D, L, ain, ncands=2, factor=1.5):
     
+    Qinv = la.inv(L.T.dot(D.dot(L)))
+    ain, N = navpy.utils.input_check_Nx1(ain)
+    
+    Chi = []
+    
+    for k in reversed(range(-1,N)):
+        afloat = ain.copy()
+        afixed = ain.copy()
+        
+        #print afloat
+        #print afixed
+        #print k
+        
+        for i in reversed(range(0,N)):
+            dw = 0
+            for j in range(i,N):
+                dw += L[j,i] * (afloat[j]-afixed[j])
+            #print i
+            #print dw
+            afloat[i] -= dw
+            if(i is not k):
+                afixed[i] = np.round(afloat[i])
+            else:
+                #print "here"
+                if ( np.abs(afixed[i]-afloat[i]) < 1e-5 ):
+                    afixed[i] = np.round(afixed[i] + 1)
+                else:
+                    afixed[i] = np.round( afloat[i] + np.sign(afloat[i] - afixed[i]) )
+                #print afixed[i]
+        
+        Chi.append(  (ain-afixed).T.dot(Qinv).dot(ain-afixed) )
+    
+    Chi = np.array(Chi)
+    Chi.sort()    
+    return Chi
