@@ -205,15 +205,16 @@ def compute_sat_pos(ephem,sv_t):
     
     Parameters
     ----------
-    ephem: ephem_class object 
-    sv_t: Nx2 iterable object
-        Column 0: Satellite PRN Number [0-31]
-        Column 1: Time at which the position of PRN on Column 0 is desired
+    ephem : ephem_class object 
+    sv_t : {(N,2)} iterable object
+        Column 0 : Satellite PRN Number [0-31]
+        Column 1 : GPS Time (TOW) at which the position of PRN on Col 0 is desired
     
     Returns
     -------
-    x, y, z: (m) ECEF Position of each satellite specified on Column 0 of sv_t
-            at the time specified on Column 1 of sv_t
+    x, y, z : Satellite posiiton in meters
+        ECEF Position of each satellite specified on Col 0 of `sv_t` at the time 
+        specified on Col of `sv_t`
     
     Adhika Lie, 06/21/2014
     """
@@ -307,15 +308,16 @@ def compute_sat_clk_bias(ephem,sv_t):
     
     Parameters
     ----------
-    ephem: ephem_class object 
-    sv_t: Nx2 iterable object
-        Column 0: Satellite PRN Number [0-31]
-        Column 1: Time at which the position of PRN on Column 0 is desired
+    ephem : ephem_class object 
+    sv_t : {(N,2)} iterable object
+        Column 0 : Satellite PRN Number [0-31]
+        Column 1 : GPS Time (TOW) at which the position of PRN on Col 0 is desired
     
     Returns
     -------
-    clkbias: (sec) Satellite clock bias estimate  of each satellite specified
-            on Column 0 of sv_t, at the time specified on Column 1 of sv_t
+    clkbias : Clock bias in seconds
+        Satellite clock bias estimate  of each satellite specified on Col 0 of `sv_t`
+        at the time specified on Col 1 of `sv_t`
     
     Adhika Lie, 06/21/2014
     """
@@ -373,12 +375,12 @@ def _calcEA(M,e):
     Calculate Mean Anomaly, used for satellite position computation
     Parameters
     ----------
-    M: Mean anomaly
-    e: eccentricity
+    M : Mean anomaly
+    e : eccentricity
     
     Return
     ------
-    E: Eccentric Anomaly
+    E : Eccentric Anomaly
     
     Adhika Lie, 09/21/2014
     """
@@ -401,16 +403,16 @@ def calendar2gpstime(year,month,day,hour,minute,sec):
     
     Parameters
     ----------
-    year: Julian calendar year
-    month: Month 1 to 12
-    day: Date
-    hour: Time
-    minute: Time
-    sec: Time
+    year : Julian calendar year
+    month : Month 1 to 12
+    day : Date
+    hour : Time
+    minute : Time
+    sec : Time
     
     Return
     ------
-    weekNo, TOW: GPS Week number and time of week in seconds
+    weekNo, TOW : GPS Week number and time of week in seconds
     
     Adhika Lie, 06/21/2014
     """
@@ -425,3 +427,6 @@ def calendar2gpstime(year,month,day,hour,minute,sec):
     TOW = rem + dsec
     
     return weekNo,TOW
+
+def calc_azel(sv_t,sat_x,sat_y,sat_z,ephem=None):
+    return 0
