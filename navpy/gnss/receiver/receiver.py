@@ -5,6 +5,7 @@ LICENSE.txt
 """
 
 import numpy as np
+import navpy.utils as _utils
 
 class rx_class:
     """
@@ -23,6 +24,9 @@ class rx_class:
         self.sig_N = 0
         self.sig_E = 0
         self.sig_D = 0
+        self.vN = 0
+        self.vE = 0
+        self.vD = 0
         
         self.rawdata = prn_class()
         
@@ -186,6 +190,7 @@ class prn_class:
     # 5. FLAGS           
     # ====================================================================
     def _set_dataValid(self,sv):
+        # Is this method ever used??
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
@@ -193,20 +198,22 @@ class prn_class:
         if(N1==1):
             sv=[sv]
             
-        for i in xrange(N1):
-            self._dataValid[sv[i]] = True
+        for prn in sv:
+            self._dataValid[prn] = True
     
     def _reset_dataValid(self,sv):
+        # Is this method ever used??
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
         
         if(N1==1):
             sv=[sv]
-        for i in xrange(N1):
-            self._dataValid[sv[i]] = False
+        for prn in sv:
+            self._dataValid[prn] = False
     
     def check_dataValid(self,sv):
+        # Consider renaming this method to "set_dataValidity"
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
@@ -218,6 +225,7 @@ class prn_class:
             self._dataValid[prn] = ~( np.any(np.isnan(self._PR[prn])) or np.any(np.isnan(self._ADR[prn])) ) 
         
     def is_dataValid(self,sv):
+        # Consider renaming this method to "get_dataValidity"
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
