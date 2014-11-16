@@ -28,7 +28,7 @@ class rx_class:
         self.vE = 0
         self.vD = 0
         
-        self.rawdata = prn_class()
+        self.rawEpochData = prn_class()
         
         self.INIT = False
         
@@ -57,11 +57,20 @@ class prn_class:
     Adhika Lie, 06/21/2014
     """
     def __init__(self):
-        self._PR = np.nan*np.ones(32)    # Pseudorange
-        self._ADR = np.nan*np.ones(32)   # Carrier Phase
+        self._TOW = np.nan
+        self._L1CA = np.nan*np.ones(32)    # L1 C/A code
+        self._L1P = np.nan*np.ones(32)     # L1 P code
+        self._L1 = np.nan*np.ones(32)      # L1 Phase
+        self._L2P = np.nan*np.ones(32)     # L2 P code
+        self._L2 = np.nan*np.ones(32)      # L2 Phase 
         self._DR = np.nan*np.ones(32)    # Doppler
-        self._PR_std = np.nan*np.ones(32)
-        self._ADR_std = np.nan*np.ones(32)
+
+        self._L1CA_std = np.nan*np.ones(32)
+        self._L1P_std = np.nan*np.ones(32)
+        self._L1_std = np.nan*np.ones(32)
+        self._L2P_std = np.nan*np.ones(32)
+        self._L2_std = np.nan*np.ones(32)
+
         self._locktime = np.nan*np.ones(32)
         self._CNo = np.nan*np.ones(32)
         self._dataValid = [False for i in xrange(32)]
@@ -69,10 +78,16 @@ class prn_class:
     ######################################################################
     #                            prn_class APIs
     ######################################################################
-    
+    def set_TOW(self,tow):
+        self._TOW = tow
+        
+    def get_TOW(self):
+        return self._TOW
+        
     # 1. PSEUDORANGE
     # ====================================================================
-    def set_pseudorange(self,PR,PR_std,sv):
+    # ============================= L1 C/A ===============================
+    def set_L1CA(self,PR,PR_std,sv):
         sv,N1 = _utils.input_check_Nx1(sv)
         PR,N2 = _utils.input_check_Nx1(PR)
         PR_std,N3 = _utils.input_check_Nx1(PR_std)
@@ -89,19 +104,19 @@ class prn_class:
             PR_std = [PR_std]
 
         for i in xrange(N1):
-            self._PR[sv[i]] = PR[i]
-            self._PR_std[sv[i]] = PR_std[i]
+            self._L1CA[sv[i]] = PR[i]
+            self._L1CA_std[sv[i]] = PR_std[i]
     
-    def get_pseudorange(self,sv):
+    def get_L1CA(self,sv):
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
         
         if(N1==1):
             sv=[sv]
-        return np.array([self._PR[prn] for prn in sv])
+        return np.array([self._L1CA[prn] for prn in sv])
     
-    def get_PR_cov(self,sv):
+    def get_L1CA_cov(self,sv):
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
@@ -109,11 +124,92 @@ class prn_class:
         if(N1==1):
             sv=[sv]
         
-        return np.diag([1./self._PR_std[prn]**2 for prn in sv])
+        return np.diag([1./self._L1CA_std[prn]**2 for prn in sv])
+
+    # ============================= L1 P ===============================
+    def set_L1P(self,PR,PR_std,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        PR,N2 = _utils.input_check_Nx1(PR)
+        PR_std,N3 = _utils.input_check_Nx1(PR_std)
+
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+
+        if( (N1!=N2) or (N1!=N3) ):
+            raise TypeError('Incompatible size')
+            
+        if(N1==1):
+            sv=[sv]
+            PR = [PR]
+            PR_std = [PR_std]
+
+        for i in xrange(N1):
+            self._L1P[sv[i]] = PR[i]
+            self._L1P_std[sv[i]] = PR_std[i]
+    
+    def get_L1P(self,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        
+        if(N1==1):
+            sv=[sv]
+        return np.array([self._L1P[prn] for prn in sv])
+    
+    def get_L1P_cov(self,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        
+        if(N1==1):
+            sv=[sv]
+        
+        return np.diag([1./self._L1P_std[prn]**2 for prn in sv])
+    
+    # ============================= L2 P ===============================
+    def set_L2P(self,PR,PR_std,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        PR,N2 = _utils.input_check_Nx1(PR)
+        PR_std,N3 = _utils.input_check_Nx1(PR_std)
+
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+
+        if( (N1!=N2) or (N1!=N3) ):
+            raise TypeError('Incompatible size')
+            
+        if(N1==1):
+            sv=[sv]
+            PR = [PR]
+            PR_std = [PR_std]
+
+        for i in xrange(N1):
+            self._L2P[sv[i]] = PR[i]
+            self._L2P_std[sv[i]] = PR_std[i]
+    
+    def get_L2P(self,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        
+        if(N1==1):
+            sv=[sv]
+        return np.array([self._L2P[prn] for prn in sv])
+    
+    def get_L2P_cov(self,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        
+        if(N1==1):
+            sv=[sv]
+        
+        return np.diag([1./self._L2P_std[prn]**2 for prn in sv])
     
     # 2. CARRIER PHASE / ACCUMULATED DOPPLER RANGE 
     # ====================================================================  
-    def set_carrierphase(self,ADR,ADR_std,locktime,sv):
+    # =============================== L1 =================================
+    def set_L1(self,ADR,ADR_std,locktime,sv):
         sv,N1 = _utils.input_check_Nx1(sv)
         ADR,N2 = _utils.input_check_Nx1(ADR)
         ADR_std,N3 = _utils.input_check_Nx1(ADR_std)
@@ -130,20 +226,20 @@ class prn_class:
             locktime = [locktime]
         
         for i in xrange(N1):
-            self._ADR[sv[i]] = ADR[i]
-            self._ADR_std[sv[i]] = ADR_std[i]
+            self._L1[sv[i]] = ADR[i]
+            self._L1_std[sv[i]] = ADR_std[i]
             self._locktime[sv[i]] = locktime[i]
 
-    def get_carrierphase(self,sv):
+    def get_L1(self,sv):
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
         
         if(N1==1):
             sv=[sv]
-        return np.array([self._ADR[prn] for prn in sv])
+        return np.array([self._L1[prn] for prn in sv])
     
-    def get_ADR_cov(self,sv):
+    def get_L1_cov(self,sv):
         sv,N1 = _utils.input_check_Nx1(sv)
         if(np.any(sv>=32)):
             raise TypeError('sv > 32')
@@ -151,7 +247,48 @@ class prn_class:
         if(N1==1):
             sv=[sv]
         
-        return np.diag([1./self._ADR_std[prn]**2 for prn in sv])
+        return np.diag([1./self._L1_std[prn]**2 for prn in sv])
+    
+    # =============================== L2 =================================
+    def set_L2(self,ADR,ADR_std,locktime,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        ADR,N2 = _utils.input_check_Nx1(ADR)
+        ADR_std,N3 = _utils.input_check_Nx1(ADR_std)
+        locktime,N4 = _utils.input_check_Nx1(locktime)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        if( (N1!=N2) or (N1!=N3) or (N1!=N4)):
+            raise TypeError('Incompatible size')
+        
+        if(N1==1):
+            sv=[sv]
+            ADR = [ADR]
+            ADR_std = [ADR_std]
+            locktime = [locktime]
+        
+        for i in xrange(N1):
+            self._L2[sv[i]] = ADR[i]
+            self._L2_std[sv[i]] = ADR_std[i]
+            self._locktime[sv[i]] = locktime[i]
+
+    def get_L2(self,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        
+        if(N1==1):
+            sv=[sv]
+        return np.array([self._L2[prn] for prn in sv])
+    
+    def get_L2_cov(self,sv):
+        sv,N1 = _utils.input_check_Nx1(sv)
+        if(np.any(sv>=32)):
+            raise TypeError('sv > 32')
+        
+        if(N1==1):
+            sv=[sv]
+        
+        return np.diag([1./self._L2_std[prn]**2 for prn in sv])
     
     # 3. DOPPLER      
     # ====================================================================
@@ -222,7 +359,7 @@ class prn_class:
             sv=[sv]    
             
         for prn in sv:
-            self._dataValid[prn] = ~( np.any(np.isnan(self._PR[prn])) or np.any(np.isnan(self._ADR[prn])) ) 
+            self._dataValid[prn] = ~( np.any(np.isnan(self._L1CA[prn])) or np.any(np.isnan(self._L1[prn])) ) 
         
     def is_dataValid(self,sv):
         # Consider renaming this method to "get_dataValidity"

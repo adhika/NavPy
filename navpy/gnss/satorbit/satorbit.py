@@ -428,5 +428,52 @@ def calendar2gpstime(year,month,day,hour,minute,sec):
     
     return weekNo,TOW
 
-def calc_azel(sv_t,sat_x,sat_y,sat_z,ephem=None):
-    return 0
+def calc_azel(sat_x,sat_y,sat_z,lat,lon,alt,ephem=None,sv_t=None):
+    """
+    Calculate azimuth and elevation angle of given satellites
+    
+    Parameters
+    ----------
+    sat_x, sat_y, sat_z : {(N,)} iterable objects
+                          Satellite ECEF position
+    lat, lon, alt : {deg, deg, m} 
+                    Receiver latitude, longitude, and altitude reference
+    ephem : ephem_class object, optional
+            When this is specified, sat_x, sat_y, sat_z input is ignored
+            When this is specified, sv_t must be given
+    sv_t : {(N,2)} iterable object, optional
+        Column 0 : Satellite PRN Number [0-31]
+        Column 1 : GPS Time (TOW) at which the position of PRN on Col 0 is desired
+        When ephem is specified, this has to be specified as well
+    
+    Returns
+    -------
+    azel : {(N,2)}, ndarray, rad
+           Azimuth and elevation angles of the satellites specified in sv_t list or
+           the sat_x, sat_y, sat_z position
+    """
+    if (ephem is not None):
+        if(sv_t is None):
+            raise ValueError('Ephemeris is given but time is not Specified')
+        else:
+            sv_t, N = _utils.input_check_Nx2(sv_t)
+            sat_x, sat_y, sat_z = compute_sat_pos(ephem,sv_t)
+    
+    sat_pos = np.vstack((sat_x,sat_y,sat_z)).T
+    sat_pos, N = _utils.input_check_Nx3(sat_pos)
+    
+    rx_pos = _navpy.lla2ecef(lat,lon,alt)
+    
+    dpos = sat_pos - np.outer(np.ones(N), rx_pos)
+    dpos = _navpy.ecef2ned(dpos,lat,lon,alt)
+    
+    #dpos = np.atleast_2d(dpos)  # Make this into 2D so we can normalize
+    #print dpos
+    #dpos = dpos / np.linalg.norm(dpos,axis=1)  # Normalize
+    
+    azel = np.zeros((N,2))
+    for i in xrange(N):
+        azel[i,0] = np.arctan2(dpos[i,1],dpos[i,0])  # Azimuth
+        azel[i,1] = np.arctan2( -dpos[i,2], np.linalg.norm(dpos[i,0:2]) )
+    
+    return azel

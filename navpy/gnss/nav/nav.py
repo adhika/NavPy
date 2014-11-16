@@ -18,13 +18,13 @@ import navpy as navpy
 import navpy.utils as _utils
 from ..satorbit import satorbit
 
-def code_phase_LS(rx, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
+def code_phase_LS(rawEpochData, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
     """
     Calculate code phase least square solution
     
     Parameters
     ----------
-    rx: rx_class object
+    rawEpochData: rx_class object
         Contains all the receiver data
     gps_ephem: ephem_class object
                Object that contains the satellite ephemeris.
@@ -50,19 +50,19 @@ def code_phase_LS(rx, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
             Estimated Receiver Clock Bias in seconds
     """
     # If there are less than 3 satellites, don't do anything
-    SV_avbl = np.nonzero(rx.rawdata.is_dataValid(range(32)))[0]
+    SV_avbl = np.nonzero(rawEpochData.is_dataValid(range(32)))[0]
+    print(SV_avbl)
     
     if(len(SV_avbl) < 3):
         return lat, lon, alt, rxclk
     
     # Begin computing position using Least Squares
-    #t_tx = rx.TOW*np.ones(len(SV_avbl))
     delta_time = np.zeros(len(SV_avbl))
     
     # Iterate because time at transmission is not known ...
     for k in xrange(5):
         ecef = navpy.lla2ecef(lat,lon,alt)
-        t_tx = rx.TOW*np.ones(len(SV_avbl)) - delta_time
+        t_tx = rawEpochData.get_TOW()*np.ones(len(SV_avbl)) - delta_time
         
         # Build satellite information
         clk = satorbit.compute_sat_clk_bias(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
@@ -77,10 +77,10 @@ def code_phase_LS(rx, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
         
         # Innovation: Difference between the measurement (corrected for satellite clock bias)
         #             and PR_hat
-        dy = (rx.rawdata.get_pseudorange(SV_avbl) + clk*2.99792458e8) - PR_hat
+        dy = (rawEpochData.get_L1CA(SV_avbl) + clk*2.99792458e8) - PR_hat
         
         # Measurement Covariance
-        RR = rx.rawdata.get_PR_cov(SV_avbl)
+        RR = rawEpochData.get_L1CA_cov(SV_avbl)
 
         # Least Square Solution
         dx = la.inv(H.T.dot(RR.dot(H))).dot(H.T.dot(RR)).dot(dy)

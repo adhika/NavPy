@@ -11,7 +11,7 @@ import numpy as _np
 ###############################################################################
 def read_gps(fid,rx):
     """
-    Read raw GPS measurements (binary file)
+    Read 1 epoch of raw GPS measurements from Binary file
     Works with NovaTel's RANGE message
     
     Parameters
@@ -129,8 +129,8 @@ def read_gps(fid,rx):
             else:
                 if(msg_id==43):
                     # This is RANGE message from NovaTel Receiver
-                    rx.TOW = GPS_TOW
-                    parse_range(msgBuff,rx.rawdata)
+                    rx.set_TOW(GPS_TOW)
+                    parse_range(msgBuff,rx)
                 msgValid = True
                 
             state = 0
@@ -149,8 +149,8 @@ def read_gps(fid,rx):
 ###############################################################################
 
 def parse_range(msgBuff,sat):
-    sat.set_pseudorange(_np.nan*_np.ones(32),_np.nan*_np.ones(32),range(32))
-    sat.set_carrierphase(_np.nan*_np.ones(32),_np.nan*_np.ones(32),_np.nan*_np.ones(32),range(32))
+    sat.set_L1CA(_np.nan*_np.ones(32),_np.nan*_np.ones(32),range(32))
+    sat.set_L1(_np.nan*_np.ones(32),_np.nan*_np.ones(32),_np.nan*_np.ones(32),range(32))
     sat.set_doppler(_np.nan*_np.ones(32),range(32))
     sat.set_CNo(_np.nan*_np.ones(32),range(32))
     
@@ -163,10 +163,10 @@ def parse_range(msgBuff,sat):
         
         #print sv
         
-        sat.set_pseudorange(struct.unpack('@d',msgBuff[8+cnt*44:16+cnt*44])[0],\
+        sat.set_L1CA(struct.unpack('@d',msgBuff[8+cnt*44:16+cnt*44])[0],\
                             struct.unpack('@f',msgBuff[16+cnt*44:20+cnt*44])[0],\
                             sv)
-        sat.set_carrierphase(struct.unpack('@d',msgBuff[20+cnt*44:28+cnt*44])[0],\
+        sat.set_L1(struct.unpack('@d',msgBuff[20+cnt*44:28+cnt*44])[0],\
                             struct.unpack('@f',msgBuff[28+cnt*44:32+cnt*44])[0],\
                             struct.unpack('@f',msgBuff[40+cnt*44:44+cnt*44])[0],\
                             sv)

@@ -100,17 +100,17 @@ class TestGNSSNavClass(unittest.TestCase):
     
             # Parse the Data
             for i in xrange(32):
-                GPSrx.TOW = data[0]
-                GPSrx.rawdata.set_pseudorange(data[6*i+1],data[6*i+4],i)
-                GPSrx.rawdata.set_carrierphase(data[6*i+2],data[6*i+5],data[6*i+6],i)
-                GPSrx.rawdata.set_doppler(data[6*i+3],i)
+                GPSrx.rawEpochData.set_TOW(data[0])
+                GPSrx.rawEpochData.set_L1CA(data[6*i+1],data[6*i+4],i)
+                GPSrx.rawEpochData.set_L1(data[6*i+2],data[6*i+5],data[6*i+6],i)
+                GPSrx.rawEpochData.set_doppler(data[6*i+3],i)
         
-                GPSrx.rawdata.check_dataValid(i)
-        
-            SV_avbl = np.nonzero(GPSrx.rawdata.is_dataValid(range(32)))[0]
+                GPSrx.rawEpochData.check_dataValid(i)
             
+            
+            GPSrx.TOW = GPSrx.rawEpochData.get_TOW()
             GPSrx.lat, GPSrx.lon, GPSrx.alt, GPSrx.clkbias = \
-                                nav.code_phase_LS(GPSrx,gps_ephem,\
+                                nav.code_phase_LS(GPSrx.rawEpochData,gps_ephem,\
                                                  lat=GPSrx.lat,\
                                                  lon=GPSrx.lon,\
                                                  alt=GPSrx.alt,\
