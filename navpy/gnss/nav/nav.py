@@ -18,7 +18,7 @@ import navpy as navpy
 import navpy.utils as _utils
 from ..satorbit import satorbit
 
-def code_phase_LS(rawEpochData, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0):
+def code_phase_LS(rawEpochData, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0, SV=None):
     """
     Calculate code phase least square solution
     
@@ -48,39 +48,46 @@ def code_phase_LS(rawEpochData, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0)
           Estimated Altitude in meters
     rxclk : float
             Estimated Receiver Clock Bias in seconds
+    SVuse : iterable, float
+            PRN used in the computation
+    t_tx : iterable, float
+           Time at transmission of each SVuse
     """
     # If there are less than 3 satellites, don't do anything
-    SV_avbl = np.nonzero(rawEpochData.is_dataValid(range(32)))[0]
-    print(SV_avbl)
+    if(SV is None):
+        SVuse = np.nonzero(rawEpochData.is_dataValid(range(32)))[0] 
+        print(SVuse)
+    else:
+        SVuse = SV
     
-    if(len(SV_avbl) < 3):
+    if(len(SVuse) < 3):
         return lat, lon, alt, rxclk
     
     # Begin computing position using Least Squares
-    delta_time = np.zeros(len(SV_avbl))
+    delta_time = np.zeros(len(SVuse))
     
     # Iterate because time at transmission is not known ...
     for k in xrange(5):
         ecef = navpy.lla2ecef(lat,lon,alt)
-        t_tx = rawEpochData.get_TOW()*np.ones(len(SV_avbl)) - delta_time
+        t_tx = rawEpochData.get_TOW()*np.ones(len(SVuse)) - delta_time
         
         # Build satellite information
-        clk = satorbit.compute_sat_clk_bias(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
-        x,y,z = satorbit.compute_sat_pos(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
+        clk = satorbit.compute_sat_clk_bias(gps_ephem,np.vstack((SVuse,t_tx)).T)
+        x,y,z = satorbit.compute_sat_pos(gps_ephem,np.vstack((SVuse,t_tx)).T)
         
         # Build Geometry Matrix H = [LOS 1]
         rho = np.sqrt((x-ecef[0])**2 + (y-ecef[1])**2 + (z-ecef[2])**2)  #LOS Magnitude
-        H = np.vstack( ( -(x-ecef[0])/rho, -(y-ecef[1])/rho, -(z-ecef[2])/rho, np.ones(len(SV_avbl)) ) ).T
+        H = np.vstack( ( -(x-ecef[0])/rho, -(y-ecef[1])/rho, -(z-ecef[2])/rho, np.ones(len(SVuse)) ) ).T
         
         # Calculate estimated pseudorange
-        PR_hat = np.sqrt((x-ecef[0])**2 + (y-ecef[1])**2 + (z-ecef[2])**2) + rxclk*np.ones(len(SV_avbl))
+        PR_hat = np.sqrt((x-ecef[0])**2 + (y-ecef[1])**2 + (z-ecef[2])**2) + rxclk*np.ones(len(SVuse))
         
         # Innovation: Difference between the measurement (corrected for satellite clock bias)
         #             and PR_hat
-        dy = (rawEpochData.get_L1CA(SV_avbl) + clk*2.99792458e8) - PR_hat
+        dy = (rawEpochData.get_L1CA(SVuse) + clk*2.99792458e8) - PR_hat
         
         # Measurement Covariance
-        RR = rawEpochData.get_L1CA_cov(SV_avbl)
+        RR = rawEpochData.get_L1CA_cov(SVuse)
 
         # Least Square Solution
         dx = la.inv(H.T.dot(RR.dot(H))).dot(H.T.dot(RR)).dot(dy)
@@ -91,11 +98,11 @@ def code_phase_LS(rawEpochData, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0)
         lat, lon, alt = navpy.ecef2lla(ecef)
         
         # Recalculate delta_time to correct for time at transmission
-        x,y,z = satorbit.compute_sat_pos(gps_ephem,np.vstack((SV_avbl,t_tx)).T)
+        x,y,z = satorbit.compute_sat_pos(gps_ephem,np.vstack((SVuse,t_tx)).T)
         delta_time = (np.sqrt((x-ecef[0])**2 + (y-ecef[1])**2 + (z-ecef[2])**2))/2.99792458e8
         # ... Let's go to the next iteration ...
-     
-    return lat, lon, alt, rxclk
+    
+    return lat, lon, alt, rxclk, SVuse, t_tx
 
 def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
     """

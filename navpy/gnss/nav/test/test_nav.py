@@ -109,7 +109,7 @@ class TestGNSSNavClass(unittest.TestCase):
             
             
             GPSrx.TOW = GPSrx.rawEpochData.get_TOW()
-            GPSrx.lat, GPSrx.lon, GPSrx.alt, GPSrx.clkbias = \
+            GPSrx.lat, GPSrx.lon, GPSrx.alt, GPSrx.clkbias, _ , _ = \
                                 nav.code_phase_LS(GPSrx.rawEpochData,gps_ephem,\
                                                  lat=GPSrx.lat,\
                                                  lon=GPSrx.lon,\

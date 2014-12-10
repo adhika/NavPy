@@ -29,6 +29,8 @@ class rx_class:
         self.vD = 0
         
         self.rawEpochData = prn_class()
+        self.set = []
+        self.ttx = []
         
         self.INIT = False
         
