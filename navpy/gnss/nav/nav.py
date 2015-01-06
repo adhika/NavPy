@@ -67,7 +67,7 @@ def code_phase_LS(rawEpochData, gps_ephem, lat=0.0, lon=0.0, alt=0.0, rxclk=0.0,
     delta_time = np.zeros(len(SVuse))
     
     # Iterate because time at transmission is not known ...
-    for k in xrange(5):
+    for k in range(5):
         ecef = navpy.lla2ecef(lat,lon,alt)
         t_tx = rawEpochData.get_TOW()*np.ones(len(SVuse)) - delta_time
         
@@ -188,8 +188,36 @@ def lambda_fix(afloat,Qahat,ncands=2,verbose=False):
         
     # Compute decorrelation matrix Z
     # Z-transformation based on L-D decomposition of Qahat
+    Z, L, D = lambda_decorrel(Qahat)
+    z = Z.T.dot(afloat)
+    Qz = Z.T.dot(Qahat.dot(Z))
+    if(verbose):
+        print("L:")
+        print(repr(L))
+        print("D:")
+        print(repr(D))
+        print("Z:")
+        print(repr(Z))
     
-    afixed = afloat
+    # Compute search ellipsoid size
+    Chi2 = lambda_chistart(D, L, z, ncands=ncands)
+    if(verbose):
+        print("Chi2:")
+        print(repr(Chi2))
+    
+    # Perform search
+    zfixed, sqnorm = lambda_fi71(z,L,D,Chi2[ncands-1],ncands=ncands)
+    if(verbose):
+        print("sqnorm:")
+        print(repr(sqnorm))
+        print("zfixed:")
+        print(repr(zfixed))
+    
+    afixed = (zfixed.T.dot(la.inv(Z))).T
+    afixed = afixed + np.tile(incr,(ncands,1)).T
+    if(verbose):
+        print("afixed:")
+        print(repr(afixed))
     return afixed
 
 def lambda_ldl(Qin):
@@ -708,5 +736,6 @@ def lambda_chistart(D, L, ain, ncands=2, factor=1.5):
         Chi.append(  (ain-afixed).T.dot(Qinv).dot(ain-afixed) )
     
     Chi = np.array(Chi)
-    Chi.sort()    
+    Chi.sort()
+    Chi += 1e-6    
     return Chi
