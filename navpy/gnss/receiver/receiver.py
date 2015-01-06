@@ -75,7 +75,7 @@ class prn_class:
 
         self._locktime = np.nan*np.ones(32)
         self._CNo = np.nan*np.ones(32)
-        self._dataValid = [False for i in xrange(32)]
+        self._dataValid = [False for i in range(32)]
         
     ######################################################################
     #                            prn_class APIs
@@ -105,7 +105,7 @@ class prn_class:
             PR = [PR]
             PR_std = [PR_std]
 
-        for i in xrange(N1):
+        for i in range(N1):
             self._L1CA[sv[i]] = PR[i]
             self._L1CA_std[sv[i]] = PR_std[i]
     
@@ -145,7 +145,7 @@ class prn_class:
             PR = [PR]
             PR_std = [PR_std]
 
-        for i in xrange(N1):
+        for i in range(N1):
             self._L1P[sv[i]] = PR[i]
             self._L1P_std[sv[i]] = PR_std[i]
     
@@ -185,7 +185,7 @@ class prn_class:
             PR = [PR]
             PR_std = [PR_std]
 
-        for i in xrange(N1):
+        for i in range(N1):
             self._L2P[sv[i]] = PR[i]
             self._L2P_std[sv[i]] = PR_std[i]
     
@@ -227,7 +227,7 @@ class prn_class:
             ADR_std = [ADR_std]
             locktime = [locktime]
         
-        for i in xrange(N1):
+        for i in range(N1):
             self._L1[sv[i]] = ADR[i]
             self._L1_std[sv[i]] = ADR_std[i]
             self._locktime[sv[i]] = locktime[i]
@@ -268,7 +268,7 @@ class prn_class:
             ADR_std = [ADR_std]
             locktime = [locktime]
         
-        for i in xrange(N1):
+        for i in range(N1):
             self._L2[sv[i]] = ADR[i]
             self._L2_std[sv[i]] = ADR_std[i]
             self._locktime[sv[i]] = locktime[i]
@@ -306,7 +306,7 @@ class prn_class:
             sv=[sv]
             DR = [DR]
             
-        for i in xrange(N1):
+        for i in range(N1):
             self._DR[sv[i]] = DR[i]
  
     # 4. CARRIER-TO-NOISE 
@@ -323,7 +323,7 @@ class prn_class:
             sv=[sv]
             CNo = [CNo]
             
-        for i in xrange(N1):
+        for i in range(N1):
             self._CNo[sv[i]] = CNo[i]
 
     # 5. FLAGS           
