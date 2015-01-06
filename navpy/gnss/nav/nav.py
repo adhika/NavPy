@@ -288,9 +288,9 @@ def lambda_decorrel(Qin):
     
     The resulting transformation matrix, Z, can be used as follows:
     ..math::
-        z = Z a
-        \hat{z} = Z \hat{a}
-        Q_{\hat{z}} = Z Q_{\hat{a}} Z^T
+        z = Z^T a
+        \hat{z} = Z^T \hat{a}
+        Q_{\hat{z}} = Z^T Q_{\hat{a}} Z
     """
     # Decorrelation procedure
     n = Qin.shape[0]
